@@ -1,0 +1,2499 @@
+(main)MOTYPE  
+
+******************************************************
+*                    _                           _ 
+*   .--  --.        | | _   ___    _  _   ___   |_|
+*	|  \/  | .----. | |/ / /    \ ||  || /    \ | |
+*	| |  | | | [] | |   <  --.  | ||  || --.  | | | 
+*   |_|  |_|  ----  |_|\_\ \____\ |_/\_| \____\ |_|
+*	
+*	    THOMSON MO6 / PC 128 OLIVETTI PRODEST's	
+*		        !!! JAPPOFESTA !!!
+*
+*            Paolo Cattaneo 2K18/2K19
+* 
+******************************************************
+       
+         ORG  $4000  .origin
+	     ORCC #$80   .suppress monitor
+	   
+       * Includes 	   
+         INCLUD MOSTARS						
+	     INCLUD MOGFX
+		 INCLUD MODRAW
+	     INCLUD MOINPUT		 
+		 INCLUD MOENMIES
+         INCLUD MOPLR
+		 INCLUD MOSHTS
+		 INCLUD MOTILEM		 
+		 INCLUD GAMENG
+		 INCLUD CINEMA
+		 INCLUD MOHUD
+		 
+	   * INIT
+	     JSR BOOT16 .boot BIT16
+		 JSR INITDW
+		 JSR INITPLR
+		 JSR LOADSHOTS		 
+	   
+	   * Clear Screen	   
+         JSR SETPG2
+         JSR CLS   .clear screen  
+		 
+       * Fixed HUD
+	     JSR DRAWHUD 		 
+         JSR SETPG3
+	     JSR CLS	
+		 	 	 
+       * Loading
+	     JSR LOADCINM
+	     JSR LOADSTARS
+         JSR LOADLV1	
+ 
+       * Load enemies
+         JSR LOADENEMIES	   
+	         		
+       * Fixed HUD
+	     JSR DRAWHUD 
+		
+	   * MAIN LOOP ---------------- 		 
+MAINL	 
+         LDA #$00
+		 STA DELTAT
+      
+         * Zawardo(TM)
+         * Update tiles
+         * each n frames
+         * to keep speed  	     
+         INC SCRDL   
+         LDA SCRDL
+		 CMPA #96
+		 BEQ RSTSCROLL
+         CMPA #95
+		 BGE FRMSCROLL 		  
+	     
+		 * Erase in hidden page
+         JSR ERASE 
+		 
+		 * Starfield
+		 JSR DRAWSTARS
+		 
+         * Update		 
+		 JSR KBRD
+		 JSR UPDATEPLR
+		 JSR UPDATESHOTS
+		 JSR READENWAVE
+		 JSR UPDATECINM
+		  
+		 * Draw
+DRAW	
+         JSR DRAWENMS	
+         JSR DRAWPLR          
+		 JSR DRAWCINM
+		 
+	   * Draws tiles to
+       * balance deltatime
+BLCDELTA	   
+	     LDA DELTAT
+         CMPA #12
+         BGE VIEW
+         INCA 	
+         STA DELTAT		 
+         JSR DRAWHUD          
+		 BRA BLCDELTA
+VIEW		         
+         * Flip pages 
+	     JSR DISPLAY
+MLOOP	                  
+         BRA MAINL 	*-------------   
+STP	          
+	     STOP		
+		 
+FRMSCROLL
+         JSR DRAWTILES
+         JSR DISPLAY		 
+		 BRA MLOOP
+RSTSCROLL
+         LDA #$00
+		 STA SCRDL
+	     JSR DRAWTILES		 		 	
+	     BRA VIEW
+ERASE	
+         JSR ERASESTARS		 
+         JSR ERASESHOTS
+		 JSR ERASENMS
+         JSR ERASEPLR
+         LDD PLRPOS
+		 STD OLDPOS	 			 
+RETERASE
+		 RTS	
+	   
+		
+DELTAT RMB 1   .deltatime		 
+RAND   RMB 1   .random
+DRWPG  RMB 1   .draw page
+KLEFT  RMB 1   .key left
+KRIGHT RMB 1   .key right
+KUP    RMB 1   .key up
+KDOWN  RMB 1   .key down
+KFIRE  RMB 1   .fire key
+KCANFR RMB 1   .can fire?
+MSTSHT RMB 1   .must fire?
+DWCOL  RMB 1   .current draw col
+DWLN   RMB 1   .current draw line
+MDWCOL RMB 1   .columns to draw 
+MDWLN  RMB 1   .rows to draw
+DRWPOS RMB 2   .draw pos
+PLRSPD RMB 1   .player ship speed  
+PLRFRM RMB 1   .current plr frame
+PLRPOS RMB 2   .playerpos
+OLDPOS RMB 2   .playeroldpos
+PLRY   RMB 2   .Y row address player
+PLRX   RMB 1   .X from PLRY
+STARS  RMB 24  .stars
+SHOTS  RMB 66  .player bullets
+LVOFX  RMB 2   .L1 offset
+SCRDL  RMB 1   .scrolling delay
+DR16T  RMB 1   .16 tiles x screen
+DR5H   RMB 1   .7 tiles hud
+LV1TLS RMB 52  .L1 Tiles
+EFRMWT RMB 1   .frames to next enemy wave
+ENMSCR RMB 240 .enemies on screen (24b a enemy)
+ENMETS RMB 120 .enemies entries (12b a entry)
+ENMWVS RMB 10  .enemies waves (4b a entry + 2end)
+CUREWV RMB 2   .current enemy wave
+CURENE RMB 2   .current enemy entry
+YCMP1  RMB 2   .temp16bit 
+YCMP2  RMB 2   .temp16bit
+YCMP3  RMB 2   .temp16bit 
+YCMP4  RMB 2   .temp16bit	
+CINEM  RMB 160 .cinemation	 
+	     END 
+		 
+(include)GAMENG.ASM
+
+         LBRA ENGBOOTED
+		 
+LOADLV1  
+         * Load Tiles 
+         LDD #$0102
+	     STD LV1TLS    
+         LDD #$0001
+	     STD LV1TLS+2
+         LDD #$0201
+		 STD LV1TLS+4 	   	    
+         LDD #$0301
+	     STD LV1TLS+6 	   	    
+         LDD #$0100
+	     STD LV1TLS+8 	   	    
+         LDD #$0303
+	     STD LV1TLS+10 	   	    
+         LDD #$0200
+	     STD LV1TLS+12 	   	    
+         LDD #$0102
+	     STD LV1TLS+14    
+         LDD #$0301
+	     STD LV1TLS+16
+         LDD #$0202
+		 STD LV1TLS+18 	   	    
+         LDD #$0101
+	     STD LV1TLS+20 	   	    
+         LDD #$0103
+	     STD LV1TLS+22 	   	    
+         LDD #$0102
+	     STD LV1TLS+24 	   	    
+         LDD #$0200
+	     STD LV1TLS+26 	   	    
+         LDD #$0102	
+
+         LDD #$0000
+         STD LVOFX
+         STA DR16T	
+		 LDA #94
+         STA SCRDL
+         STA RAND 	
+         LDA #$01
+         STA PLRSPD		 
+         RTS		 	 	  
+			 
+ENGBOOTED		 
+		 
+	   
+(include)MOGFX.ASM  
+  ***************************
+  *                         *
+  *  MO6 ASM 6809           *
+  *                         *
+  *  Screen Manager         * 
+  *                         *
+  *  Sets Bit16 mode        *
+  *  Set Draw Pages 2,3     *
+  *  Swaps pages            *
+  *                         *
+  ***************************
+  
+  * DRWPG address is 
+  * 0 for page 2 selected
+  * 1 for page 3 selected 
+
+         LBRA MOGFXOK
+
+BOOT16
+         LDA #$7B   .BIT16
+		 STA $A7DC  .GRMODE
+         RTS
+		
+DISPLAY
+         LDA DRWPG 
+         CMPA #$00
+         BEQ SETPG2         
+         BRA SETPG3  
+		 		 
+SETPG2
+         JSR DISPG2
+         LDA #$01
+         STA DRWPG
+         RTS
+
+SETPG3   JSR DISPG3
+         LDA #$00 		 
+		 STA DRWPG		 
+         RTS  		 
+
+DISPG2
+         LDB #$80
+         STB $A7DD  .VIEW PG2
+         LDB #$03
+         STB $A7E5  .WRITE PG3
+         RTS 		 
+DISPG3
+         LDB #$C0
+         STB $A7DD  .VIEW PG3
+         LDB #$02
+         STB $A7E5  .WRITE PG2
+         RTS	   
+		 
+		 * Fill screen
+		 * with color 		 
+CLS      
+CLRP     
+         LDA #$00
+		 LDY #$6000
+CP       STA ,Y+
+         CMPY #$9FFF 
+         BNE CP
+         RTS		 
+         		 
+MOGFXOK		 
+   
+(include)MOINPUT.ASM    
+  ***************************
+  *                         *
+  *  MO6 ASM 6809           *
+  *                         *
+  *  Keyboard Management    *
+  *  Puts in B direction    *
+  *  (8 ways)               *
+  *  Puts fire pressed in A *
+  *                         *
+  *  Supports multiple      *
+  *  keypress               *
+  *                         *
+  ***************************
+
+* KLEFT address to store left bool
+* KRIGHT address to store right bool
+* KUP address to store up bool
+* KDOWN address to store down bool
+* KFIRE address to store fire bool
+* KCANFR address to check can fire bool 
+
+         LBRA KINPUTOK
+		 
+		 * Read Keyboard
+		 		
+		 * Keys table:
+		 * Up, Down, Left, 
+		 * Right, Spacebar	
+		 
+BUFK     FCB $62,$42,$52 
+         FCB $32,$40,$FF
+
+		 * Scroll table
+         * to check keys  		 
+KBRD
+         LDA #$00
+         STA KLEFT
+         STA KRIGHT
+         STA KUP
+         STA KDOWN
+         STA KFIRE		
+		 *
+         LEAX >BUFK,PCR
+GKEY     LDB ,X+
+         BMI RETKBRD
+ 		 
+ISFIREKEY
+         CMPB #$40        .spacebar
+         BEQ CHKFIRE
+         BRA ISUPKEY
+CHKFIRE          
+         STB $A7C1
+         LDB $A7C1 
+         BMI CANFIRE      .released 
+         BRA FIREPRESSED  .pressed
+CANFIRE
+         LDA #$00
+         STA KCANFR
+         BRA ISUPKEY  		 
+FIREPRESSED
+         LDA #$01
+		 STA KFIRE        
+ISUPKEY
+         CMPB #$62        .up key
+		 BEQ CHKUP
+         BRA ISDOWNKEY
+CHKUP 
+         STB $A7C1
+		 LDB $A7C1
+		 BMI ISDOWNKEY    
+         LDA #$01          
+         STA KUP
+ISDOWNKEY
+         CMPB #$42
+         BEQ CHKDOWN      .down
+         BRA ISLEFTKEY   		 
+CHKDOWN
+         STB $A7C1
+         LDB $A7C1
+         BMI ISLEFTKEY
+         LDA #$01
+         STA KDOWN
+ISLEFTKEY
+         CMPB #$52        .left
+		 BEQ CHKLEFT
+         BRA ISRIGHTKEY		 
+CHKLEFT
+         STB $A7C1
+		 LDB $A7C1 
+         BMI ISRIGHTKEY 
+         LDA #$01
+         STA KLEFT		 		 
+ISRIGHTKEY
+         CMPB #$32        .right
+		 BEQ CHKRIGHT
+         BRA KEYLOOP         
+CHKRIGHT
+         STB $A7C1
+		 LDB $A7C1 
+         BMI KEYLOOP 
+         LDA #$01
+         STA KRIGHT		 
+KEYLOOP 
+         BRA GKEY
+RETKBRD
+         LDA KUP
+         CMPA #$01
+         BEQ MOVUP
+         LDA KDOWN 
+         CMPA #$01
+         BEQ MOVDOWN
+         LDA KLEFT 
+         CMPA #$01
+		 BEQ MOVLEFT
+         LDA KRIGHT 
+         CMPA #$01 		 
+         BEQ MOVRIGHT
+		 LDB #00		 
+         BRA KRET
+
+         * Turn on values
+MOVLEFT
+         LDB KLEFT 
+         ADDB KUP
+         CMPB #$02
+         BEQ RETLEFTUP
+         ADDB KDOWN
+         CMPB #$02
+         BEQ RETLEFTDOWN
+         BRA RETLEFT
+MOVRIGHT
+         LDB KRIGHT 
+         ADDB KUP
+         CMPB #$02
+         BEQ RETRIGHTUP
+         ADDB KDOWN
+		 CMPB #$02
+         BEQ RETRIGHTDOWN
+         BRA RETRIGHT
+MOVUP
+         LDB KUP
+         ADDB KRIGHT
+         CMPB #$02
+         BEQ RETRIGHTUP
+         ADDB KLEFT 
+         CMPB #$02
+         BEQ RETLEFTUP
+         BRA RETUP
+MOVDOWN
+         LDB KDOWN
+         ADDB KRIGHT
+         CMPB #02
+         BEQ RETRIGHTDOWN
+         ADDB KLEFT
+         CMPB #02
+         BEQ RETLEFTDOWN
+         BRA RETDOWN
+KRET 		 
+         LDA KFIRE
+		 RTS 
+
+         *** Returning values
+RETUP 
+         LDB #03
+         BRA KRET
+RETDOWN	 
+         LDB #04
+         BRA KRET
+RETLEFT          
+         LDB #01		 
+		 BRA KRET
+RETLEFTUP 
+         LDB #05
+         BRA KRET
+RETLEFTDOWN 
+         LDB #06
+         BRA KRET
+RETRIGHT 
+         LDB #02
+         BRA KRET
+RETRIGHTUP 
+         LDB #07
+         BRA KRET
+RETRIGHTDOWN	  
+         LDB #08
+         BRA KRET
+
+KINPUTOK
+
+(include)MOPLR.ASM
+
+  *********************
+  *                   *
+  *   MO6 ASM 6809s   *
+  *     MO-TYPE       *
+  *                   *
+  *  Player Manager   * 
+  *                   *
+  *********************
+  
+         LBRA MOPLROK
+         INCLUD MOSPRS1
+
+  * Explosion animation
+EXPLOSION1
+         FDB EXPL01,EXPL02,EXPL03
+		 FDB EXPL04,EXPL05,EXPL06
+		 FDB EN00BLK
+		
+  * Init, Update, Draw, Erase
+
+PLRMOVTB
+         FDB RETUPDPLR
+         FDB PLRMOVLEFT,PLRMOVRIGHT   
+         FDB PLRMOVUP,PLRMOVDOWN   
+         FDB PLRMOVLUP,PLRMOVLDOWN
+         FDB PLRMOVRUP,PLRMOVRDOWN
+INITPLR
+         LDA #09
+		 STA PLRX
+		 LDD #$9310
+		 STD PLRY
+		 ADDB PLRX		 
+		 STD PLRPOS	
+		 STD OLDPOS	
+		 LDA #00
+		 STA PLRFRM
+         RTS
+		 
+UPDATEPLR       
+         * Check input
+CHKINPUT
+         LDA KFIRE
+         CMPA #01   .is firing?
+         BEQ PLRSHOT
+		 BRA CHKMOVE
+PLRSHOT
+         LDA KCANFR
+		 CMPA #$00
+		 BEQ PLRSHT
+		 BRA CHKMOVE
+PLRSHT		 
+         LDA #$01
+		 STA KCANFR
+         STA MSTSHT
+CHKMOVE		 
+         LSLB
+		 LDX #PLRMOVTB 
+         JMP [B,X]	
+RETUPDPLR
+		 RTS
+		 
+PLRMOVLEFT         
+		 LDA PLRFRM
+		 SUBA PLRSPD
+		 CMPA #00
+		 BLE PLRMVLEFT		 
+		 STA PLRFRM
+		 RTS
+PLRMVLEFT		 
+         LDA PLRX
+		 CMPA #$01
+         BGE PLRMVLFT1
+		 RTS
+PLRMVLFT1
+         LDA #03
+		 STA PLRFRM
+         LDD PLRPOS		 
+		 SUBD #0001
+		 STD PLRPOS
+		 DEC PLRX
+		 RTS
+PLRMOVRIGHT   
+         LDA PLRX
+		 CMPA #$20
+         BLO PLRMVRGT1
+		 RTS
+PLRMVRGT1		 
+		 LDA PLRFRM
+		 ADDA PLRSPD
+		 STA PLRFRM
+		 CMPA #03
+		 BGE PLRMVRIGHT
+		 RTS
+PLRMVRIGHT
+         LDA #00
+		 STA PLRFRM
+         LDD PLRPOS		 
+		 ADDD #0001
+		 STD PLRPOS
+		 INC PLRX
+		 RTS
+PLRMOVUP
+         LDD PLRPOS
+         CMPD #$8230
+         BGT PLRMVUP1
+		 RTS
+PLRMVUP1		 
+		 SUBD #0040
+		 STD PLRPOS		 
+		 RTS
+PLRMOVDOWN
+         LDD PLRPOS	
+         CMPD #$96A8
+         BLO PLRMVDWN1
+		 RTS
+PLRMVDWN1		 
+		 ADDD #0040
+		 STD PLRPOS		 
+		 RTS
+PLRMOVLUP
+         JSR PLRMOVUP
+		 JSR PLRMOVLEFT
+		 RTS
+PLRMOVLDOWN
+         JSR PLRMOVDOWN
+		 JSR PLRMOVLEFT
+		 RTS
+PLRMOVRUP
+         JSR PLRMOVUP
+		 JSR PLRMOVRIGHT
+		 RTS
+PLRMOVRDOWN	 
+         JSR PLRMOVDOWN
+		 JSR PLRMOVRIGHT
+		 RTS
+
+PLRSPRTB FDB PLRSHIPH1,PLRSHIPH2
+         FDB PLRSHIPH3,PLRSHIPH4
+		 
+DRAWPLR       
+         LDB PLRFRM
+		 LDY #PLRSPRTB
+         LSLB		 
+         LDX PLRPOS	
+         LEAU [B,Y]        
+DRAWPLR1		 	    		
+         LDA #02
+		 STA MDWCOL		
+		 LDA #07		 
+		 STA MDWLN	        	 		 	
+         JSR DRAWSPRITE	
+		 RTS
+ 
+ERASEPLR
+         LDU #BLACKSHIP
+		 LDX OLDPOS			 
+         BRA DRAWPLR1        	
+         RTS	
+MOPLROK
+
+(include)MODRAW.ASM
+
+  *********************
+  *                   *
+  *   MO6 ASM 6809s   *
+  *     MO-TYPE       *
+  *                   *
+  *      Draw         *
+  *     Sprites       * 
+  *                   *
+  *********************         
+  
+         LBRA MODRAWOK
+		 
+INITDW
+         LDA #02
+		 STA MDWCOL		
+		 LDA #07		 
+		 STA MDWLN
+         RTS		 
+		 
+  * Get sprite map from
+  * U and screen address 
+  * from X, uses MDRCOL
+  * and MDRCOL to draw  
+  
+  * No single pixel
+  * draw, only A + B
+  * LDD->STD so each
+  * col is 4 pixels
+  
+DRAWSPRITE     
+         INC DELTAT  
+		 STX DRWPOS	
+         LDD ,U++    .read
+		 STA MDWCOL	 .col	
+		 STB MDWLN	 .rows 	 
+DRAWRAMA 
+		 * InitA 
+         LDA #$00
+		 STA DWCOL
+		 STA DWLN		
+DRWDA     
+         LDD ,U++
+		 STD 40,X
+		 STD ,X++
+		 INC DWCOL
+         LDA DWCOL
+         CMPA MDWCOL
+         BGE NXTDWLINA         
+		 BRA DRWDA         
+NXTDWLINA        
+         INC DWLN         
+		 LDA DWLN
+         CMPA MDWLN
+         BEQ NEXTRAM		
+         LDB #80
+		 SUBB MDWCOL
+         SUBB MDWCOL		 
+		 ABX
+         LDB #00
+		 STB DWCOL
+         BRA DRWDA
+NEXTRAM
+		 LDX DRWPOS
+		 LEAX -$2000,X
+DRAWRAMB 
+		 * Init Cursors 
+         LDA #$00
+		 STA DWCOL
+		 STA DWLN		
+DRWDB    
+         * First two bytes
+		 * of the sprite
+		 * are the sprite
+		 * size
+         LDD ,U++
+		 STD ,X
+		 STD 40,X
+		 LDB #02
+		 ABX
+		 INC DWCOL
+         LDA DWCOL
+         CMPA MDWCOL
+         BEQ NXTDWLINB         
+		 BRA DRWDB         
+NXTDWLINB        
+         INC DWLN         
+		 LDA DWLN
+         CMPA MDWLN
+         BEQ RETDRW		
+         LDB #80
+		 SUBB MDWCOL
+         SUBB MDWCOL		 
+		 ABX
+         LDB #00
+		 STB DWCOL
+         BRA DRWDB		 
+RETDRW		 
+         RTS		 
+		 		
+ERASESPRITE
+         RTS
+MODRAWOK
+
+(include)MOSHTS.ASM
+
+         LBRA ENDSHTSLIB
+
+     * Shots Fields
+     *
+     * Active .... 1byte (0,1,2) 	 
+     * Cur.Sprite. 1byte (0...n) 	 
+     * SpeedX .... 1byte (0,1,2) 	 
+     * SpeedY .... 1byte (0...n) 	 
+     * Power ..... 1byte (0...n) 	 
+     * Type ...... 1byte (0...n) 	 
+     * Pos ....... 2byte 
+     * OldPos .... 2byte 
+     * OffX ...... 1byte (0-$27) 	
+     *
+	 * 11 bytes in total
+     *	 
+         
+LOADSHOTS
+         LDX #$00
+		 LDA #$00
+LOADSHOT
+         STA SHOTS,X        .Active
+         STA SHOTS+1,X		.Sprite 
+         STA SHOTS+2,X		.SpeedX 
+         STA SHOTS+3,X		.SpeedY 
+         STA SHOTS+4,X		.Power 
+         STA SHOTS+5,X		.Type 
+         STA SHOTS+6,X		.Pos 
+         STA SHOTS+8,X		.Oldpos 
+         STA SHOTS+10,X     .OffX
+         LDB #11
+		 ABX
+         CMPX #66    .6 shots
+		 BNE LOADSHOT
+         RTS
+		 
+		 * Start shot 
+STARTSHOT
+         LDX #$00        .first in list
+		 STX MSTSHT
+STARTSHOT1
+         LDA SHOTS,X
+         CMPA #$00       .isActive?
+         BNE CHKNXTSHT
+
+         * Prepare Shot
+         LDA #$02
+         STA SHOTS,X     .activate
+         LDA #$00 
+		 STA SHOTS+1,X   .sprite
+		 STA SHOTS+2,X   .speedX
+		 STA SHOTS+3,X   .speedY
+		 STA SHOTS+4,X   .power
+		 STA SHOTS+5,X   .type
+		 LDD PLRPOS      .few lines
+		 ADDD #$CA       .under plr 
+		 STD SHOTS+6,X   .position
+		 STD SHOTS+8,X   .old pos
+		 LDA PLRX        . 
+		 ADDA #02
+		 STA SHOTS+10,X  .offset x
+		 BRA SHOTSTARTED
+CHKNXTSHT
+         LDB #11
+         ABX
+		 CMPX #66        .end list?
+		 BNE STARTSHOT1
+SHOTSTARTED
+         RTS
+         
+UPDATESHOTS
+         * Check for start
+		 LDA MSTSHT
+		 CMPA #01
+		 BNE UPDSHTS
+		 JSR STARTSHOT
+UPDSHTS
+		 * Update *
+		 LDX #$00
+UPDATESHOT
+         LDA SHOTS,X
+         CMPA #$02
+         LBLO UPDNXTSHT  .active
+         LDD SHOTS+6,X   .get pos
+		 STD SHOTS+8,X   .upd pos
+		 LDA SHOTS+1,X   .frame
+		 CMPA #$00       .advance frame		  
+		 BEQ ADVSHTPOS
+		 LDA #$00
+		 STA SHOTS+1,X		 
+		 LDU #PLRSHT2    .load sprite
+		 BRA UPDSHTDONE
+ADVSHTPOS         
+         * Advance position
+		 LDA #$01
+		 STA SHOTS+1,X   .advance frame
+		 LDU #PLRSHT1    .load sprite
+		 LDD SHOTS+6,X
+		 ADDD #$0001
+		 STD SHOTS+6,X
+		 LDA SHOTS+10,X  .offset x		 
+		 * Check right screen border
+		 CMPA #$26
+		 BGE SHTBORDER
+		 INC SHOTS+10,X  .increment		
+		 BRA UPDSHTDONE
+SHTBORDER
+         LDA #$01
+         STA SHOTS,X
+         BRA UPDNXTSHT 
+UPDSHTDONE
+         LDY SHOTS+6,X    .get position
+		 JSR DRAWSHOT		 
+UPDNXTSHT
+         LDB #11 
+         ABX
+         CMPX #66
+         LBNE UPDATESHOT		 
+         RTS
+		 
+DRAWSHOT
+         * Draw  
+         INC DELTAT		 
+         
+	     * Ram A     
+         LDD ,U++
+		 STD ,Y
+		 STD 40,Y
+	     LDD ,U++
+		 STD 80,Y
+		 STD 120,Y
+	     LDD ,U++
+		 STD 160,Y
+		 STD 200,Y
+	     LDD ,U++
+		 STD 240,Y
+		 STD 280,Y
+	     LDD ,U++
+		 STD 320,Y
+		 STD 360,Y  	
+		 LEAY -$2000,Y 	
+		 
+         * Ram B     
+         LDD ,U++
+		 STD ,Y
+		 STD 40,Y
+	     LDD ,U++
+		 STD 80,Y
+		 STD 120,Y
+	     LDD ,U++
+		 STD 160,Y
+		 STD 200,Y
+	     LDD ,U++
+		 STD 240,Y
+		 STD 280,Y
+	     LDD ,U++
+		 STD 320,Y
+		 STD 360,Y  
+         RTS		 
+ 
+         * Erase  		 
+ERASESHOTS        
+         LDX #$00
+ERASESHT
+         LDA SHOTS,X
+         CMPA #$01        .active?
+         BLO DELNXTSHT
+         LDU #BLKSHT
+         LDY SHOTS+8,X    .del old pos		 
+         JSR DRAWSHOT     .erase
+         LDA SHOTS,X
+         CMPA #$01
+         BEQ DIESHT
+         BRA DELNXTSHT
+DIESHT 
+         LDA #$00
+         STA SHOTS,X
+DELNXTSHT
+         LDB #11 
+         ABX
+         CMPX #66
+         BNE ERASESHT
+		 RTS
+ENDSHTSLIB 	
+
+(include)MOTILEM.ASM
+
+  *********************
+  *                   *
+  *   MO6 ASM 6809s   *
+  *     MO-TYPE       *
+  *                   *
+  *       Tile        * 
+  *      Manager      *
+  *                   *
+  *********************
+  
+       	 LBRA TILEMOK
+		 INCLUD TILES
+		 
+DRAWTILES  
+         LDA SCRDL
+		 CMPA #95
+		 BNE DRWTILES
+ADVSCROLL	         
+         LDD LVOFX          
+		 ADDD #0001
+		 STD LVOFX
+		 CMPD #0013
+		 BLO DRWTILES         
+         LDD #$0000
+		 STD LVOFX		          
+DRWTILES   
+		 LDA #$00	 
+         STA DR16T	  .load val in DR16T       		
+         LDX LVOFX	  .load (LVOFX) in X 	 
+		 LDU #$8000   .screen pos
+DWTILES
+         LDY #LVTILES         	         
+         LDA LV1TLS,X  .get first tile 
+		 LSLA         	
+         LEAY [A,Y]    .get indexed tile
+         JSR DWTILE		 
+         LDA DR16T
+         INCA
+		 STA DR16T  		          
+         CMPA #10
+         BGE DRWTILES2		 
+         LEAU $2004,U         	 
+         LDB #$01
+         ABX		 
+         BRA DWTILES
+DRWTILES2   
+		 LDA #$00	 
+         STA DR16T	  .load val in DR16T       		
+         LDX LVOFX	  .load (LVOFX) in X 	 
+		 LDU #$9900   .screen pos
+DWTILES2
+         LDY #LVTILES         	         
+         LDA LV1TLS,X  .get first tile 
+		 LSLA         	
+         LEAY [A,Y]    .get indexed tile
+         JSR DWTILE		 
+         LDA DR16T
+         INCA
+		 STA DR16T  		          
+         CMPA #10
+         BGE RETDWTILE		 
+         LEAU $2004,U         	 
+         LDB #$01
+         ABX		 
+         BRA DWTILES2		 
+RETDWTILE        
+		 RTS		 	 
+
+         * Read offset
+		 * from $8000
+		 * in U
+		 * And colors in X		 
+DWTILE		
+         INC DELTAT
+* RAM A  
+         * Line 1  
+         LDD ,Y++		 		 
+		 STD ,U
+         STD 40,U
+         LDD ,Y++		 		
+		 STD 2,U
+		 STD 42,U     
+         
+		 * Line 2
+         LDD ,Y++
+         STD 80,U
+		 STD 120,U
+         LDD ,Y++
+		 STD 82,U
+		 STD 122,U
+
+         * Line 3
+         LDD ,Y++
+         STD 160,U
+		 STD 200,U
+         LDD ,Y++
+		 STD 162,U
+		 STD 202,U
+		 
+         * Line 4
+         LDD ,Y++
+         STD 240,U
+		 STD 280,U
+         LDD ,Y++
+		 STD 242,U
+		 STD 282,U
+		 
+         * Line 5
+         LDD ,Y++
+         STD 320,U
+		 STD 360,U
+         LDD ,Y++
+		 STD 322,U
+		 STD 362,U
+		 
+		 * Line 6
+         LDD ,Y++
+         STD 400,U
+		 STD 440,U
+         LDD ,Y++
+		 STD 402,U
+		 STD 442,U
+		 
+         LEAU -$2000,U		
+         		 
+* RAM B			          		 
+         * Line 1  
+         LDD ,Y++		 		 
+		 STD ,U
+         STD 40,U
+         LDD ,Y++		 		
+		 STD 2,U
+		 STD 42,U     
+         
+		 * Line 2
+         LDD ,Y++
+         STD 80,U
+		 STD 120,U
+         LDD ,Y++
+		 STD 82,U
+		 STD 122,U
+
+         * Line 3
+         LDD ,Y++
+         STD 160,U
+		 STD 200,U
+         LDD ,Y++
+		 STD 162,U
+		 STD 202,U
+		 
+         * Line 4
+         LDD ,Y++
+         STD 240,U
+		 STD 280,U
+         LDD ,Y++
+		 STD 242,U
+		 STD 282,U
+		 
+         * Line 5
+         LDD ,Y++
+         STD 320,U
+		 STD 360,U
+         LDD ,Y++
+		 STD 322,U
+		 STD 362,U
+		 
+		 * Line 6
+         LDD ,Y++
+         STD 400,U
+		 STD 440,U
+         LDD ,Y++
+		 STD 402,U
+		 STD 442,U		 
+		 
+         RTS 		 
+LVTILES 
+         FDB UPTILE00,UPTILE01,UPTILE02,UPTILE03 .00, 01, 02
+TILEMOK		 
+
+(include)MOSTARS.ASM
+
+  *********************
+  *                   *
+  *   MO6 ASM 6809s   *
+  *     MO-TYPE       *
+  *                   *
+  *      Stars        * 
+  *                   *
+  *********************
+
+         LBRA ENDSTARFIELD  
+
+LOADSTARS
+         * OFFY ..... 2bytes 
+         * OFFX ..... 1byte
+         * SPEED .... 1byte
+         * POS ...... 2bytes         		
+         *
+         * Total .... 6bytes		 
+
+         LDX #$00
+LOADSTAR1
+         LDD #$320   .. OFFY
+         STD STARS,X
+         LDA #$07    .. OFFX
+         STA STARS+2,X
+         LDA #$00    .. SPEED
+         STA STARS+3,X
+         LDD #$327   .. POS
+         STD STARS+4,X
+		 LEAX 6,X
+         * 		 
+         LDD #$870   .. OFFY
+         STD STARS,X
+         LDA #$17    .. OFFX
+         STA STARS+2,X
+         LDA #$00    .. SPEED
+         STA STARS+3,X
+         LDD #$887   .. POS
+         STD STARS+4,X
+         LEAX 6,X
+		 * 		 
+         LDD #$1220  .. OFFY
+         STD STARS,X
+         LDA #$22    .. OFFX
+         STA STARS+2,X
+         LDA #$00    .. SPEED
+         STA STARS+3,X
+         LDD #$1222  .. POS
+         STD STARS+4,X
+         LEAX 6,X
+		 * 		 
+         LDD #$1720  .. OFFY
+         STD STARS,X
+         LDA #$27    .. OFFX
+         STA STARS+2,X
+         LDA #$00    .. SPEED
+         STA STARS+3,X
+         LDD #$1747  .. POS
+         STD STARS+4,X       
+ENDLDSTARS		
+         RTS
+
+         * Draw Stars
+DRAWSTARS
+         LDX #$00        
+SCROLL		 
+         LDU STARS+4,X    .get pos
+         *LDA #$00         .Get Black
+         *STA $6000,U      .Erase star		 
+		 LDA STARS+2,X    .is OFFX
+         CMPA #00         .zero?
+         BEQ RELIGN     
+         DEC STARS+2,X    .Dec OFFX		 
+         BRA SCROLLRET
+RELIGN         
+         LDA #$27
+         STA STARS+2,X    .reset offx
+SCROLLRET
+         LDD STARS,X      .get offy and
+         ADDB STARS+2,X   .offx values
+         STD STARS+4,X    .update new pos
+         
+		 * random color
+randomize
+         lda RAND
+         lsra
+         bcc noeor
+         eora #$B9
+         anda #$0f		 
+noeor 
+         sta RAND
+		 cmpa #$07
+		 bge whitestar
+		 bra starpos
+whitestar		 
+         LDA #$07         .draw star
+starpos		 
+		 LDU STARS+4,X    .get new pos
+         STA $6000,U
+		 LDB #06
+         ABX
+         CMPX #24         .end list? 
+         BGE SCROLLDONE
+         BRA SCROLL
+SCROLLDONE
+         RTS
+
+         * Erase stars
+ERASESTARS
+         LDX #$00
+ERASESTAR1
+         LDU STARS+4,X .pos
+         LDB STARS+2,X .offx
+         CMPB #$27
+         BNE ERASESTAR2
+		 LDU STARS,X   .offy
+         BRA ERASESTAR3
+ERASESTAR2
+         LEAU 1,U
+ERASESTAR3
+         LDD #$00
+         STD $6000,U
+         LDB #06
+		 ABX
+         CMPX #24
+         BNE ERASESTAR1
+         RTS		 
+ENDSTARFIELD 		
+
+  
+(include)MOHUD.ASM
+
+         LBRA HUDOK
+ 
+         INCLUD HUDSPRS 
+
+HUDTILES 
+         FDB HUDSPD,HUDPWR,HUDLSR,HUDMSL 
+         FDB HUDRT,HUDOPT,HUDSHD		  
+		 
+DRAWHUD
+		 LDA #$00	 
+         STA DR5H	  .load val in DR5H       		
+    	 LDU #$9BAB   .screen pos
+		
+DWHTLS      
+         LDY #HUDTILES            	        
+         LDA DR5H 
+		 LSLA         	
+         LEAY [A,Y]    .get indexed tile
+         JSR DWTILE		 
+         LDA DR5H
+         INCA
+		 STA DR5H  		          
+         CMPA #07
+         BGE RETDWHUD		 
+         LEAU $2005,U         	 
+         LDB #$01
+         ABX		 
+         BRA DWHTLS		 
+RETDWHUD        
+		 RTS		 	          	
+         	
+HUDOK		 
+		 
+
+(include)MOPTRNS.ASM
+
+  *********************
+  *                   *
+  *   MO6 ASM 6809s   *
+  *     MO-TYPE       *
+  *                   *
+  *     Patterns      * 
+  *                   *
+  *********************
+
+PATTERNS
+          FDB PATTERN01,PATTERN02,PATTERN03,PATTERN04
+
+		 * movstep x, yy, #spriteframe, EEnd? 
+		 * FFD8 is -40
+		 * 0028 is +40
+PATTERN01 
+          FCB -$01,$00,$00,$00,$00
+          FCB -$01,$FF,$D8,$00,$00   
+          FCB -$01,$FF,$D8,$00,$00   
+          FCB -$01,$FF,$D8,$00,$00   
+          FCB -$01,$FF,$D8,$00,$00   
+          FCB -$01,$FF,$D8,$00,$00   
+          FCB -$01,$00,$00,$00,$00   
+          FCB -$01,$00,$00,$00,$00   
+          FCB -$01,$00,$00,$00,$00   
+          FCB -$01,$00,$00,$00,$00  
+          FCB -$01,$00,$00,$00,$00   
+          FCB -$01,$00,$00,$00,$00   
+          FCB -$01,$00,$00,$00,$00   
+          FCB -$01,$00,$00,$00,$00   
+          FCB -$01,$00,$28,$00,$00   
+          FCB -$01,$00,$28,$00,$00   
+          FCB -$01,$00,$28,$00,$00   
+          FCB -$01,$00,$28,$00,$00  
+          FCB -$01,$00,$28,$00,$00   
+          FCB -$01,$00,$00,$00,$00   
+          FCB -$01,$00,$00,$00,$00   
+          FCB -$01,$00,$00,$00,$00   
+          FCB -$01,$00,$00,$00,$00   
+          FCB -$01,$00,$00,$00,$00   
+          FCB -$01,$00,$00,$00,$00   
+          FCB -$01,$00,$00,$00,$00   
+          FCB -$01,$00,$28,$00,$00   
+          FCB -$01,$00,$28,$00,$00   
+          FCB -$01,$00,$28,$00,$00   
+          FCB -$01,$00,$00,$00,$00   
+          FCB -$01,$00,$00,$00,$00   
+          FCB -$01,$00,$00,$00,$00   
+          FCB -$01,$00,$00,$00,$00   
+          FCB -$01,$00,$00,$00,$00   
+          FCB -$01,$00,$00,$00,$00   
+          FCB -$01,$FF,$D8,$00,$00   
+          FCB -$01,$FF,$D8,$00,$00   
+          FCB -$01,$FF,$D8,$00,$00   
+          FCB -$01,$00,$00,$00,$00   
+          FCB -$01,$00,$00,$00,$00   
+          FCB -$01,$00,$00,$00,$00   
+          FCB -$01,$00,$00,$00,$EE         
+		  
+PATTERN02 FCB $00,$00,$00,$00
+          FCB $EE,$EE
+		  
+PATTERN03 FCB $00,$00,$00,$00
+          FCB $EE,$EE
+		  
+PATTERN04 FCB $00,$00,$00,$00
+          FCB $EE,$EE
+
+		  
+(include)MOENMIES.ASM
+
+  *********************
+  *                   *
+  *   MO6 ASM 6809s   *
+  *     MO-TYPE       *
+  *                   *
+  *     Enemies       * 
+  *     Manager       *
+  *                   *
+  *********************
+
+         LBRA ENEMIESOK
+     
+         INCLUD ENMSPRS
+         INCLUD MOPTRNS	
+
+ENUPDROUTS
+         FDB UPDATENM00	
+
+UPDATENM00		 
+         RTS
+
+LOADENEMIES		 
+		 
+LDENMENTS
+		* Load enemies entries
+	    *
+       	* Enemy Type Code ....... 1byte    
+		* OFFX start pos ........ 1byte
+		* OFFY start pos ........ 2byte
+		* Pattern Code .......... 1byte
+		* Update Routine ........ 1byte
+		* Frames before enter ... 1byte		
+		* Enemy Sprite sheet 
+		* in ENMSPRITES table ... 1byte    
+		* Health ................ 1byte
+		* Speed ................. 1byte
+		* FrmBeforeShot ......... 1byte		
+		* Shotcode .............. 1byte
+		*
+		* 12bytes
+        * 	
+         * Wave 1, 5 entries
+		 LDX #$00
+LEENT0101		 
+         LDD #$0026       .Type
+         STD ENMETS,X     .OffX
+         LDD #$8870       .OffY
+         STD ENMETS+2,X   .
+		 LDD #$0000       .Pattern
+         STD ENMETS+4,X   .UpdateRoutine
+         LDD #$0000       .WaitSpawn
+         STD ENMETS+6,X   .Sprsheet
+         LDD #$0104       .Health
+         STD ENMETS+8,X   .Speed
+         LDD #$5001       .WaitShot
+         STD ENMETS+10,X  .ShotCode
+         LDB #12
+         ABX
+         CMPX #60
+         BNE LEENT0101
+		 
+		 * Adjust frame
+		 * before spawn
+   		 LDX #$00         .backfirst
+		 LDA #$00
+EEENT0101
+         ADDA #15
+		 STA ENMETS+6,X   .Adjust   		
+         LDB #12          .frame
+         ABX              .wait2
+         CMPX #60         .spawn
+         BNE EEENT0101
+   		 
+         * Wave 2, 5 entries
+         * X is on bookmark	 
+LEENT0102		 
+         LDD #$0026       .Type
+         STD ENMETS,X     .OffX
+         LDD #$9090       .OffY
+         STD ENMETS+2,X   .
+		 LDD #$0000       .Pattern
+         STD ENMETS+4,X   .UpdateRoutine
+         LDD #$0000       .WaitSpawn
+         STD ENMETS+6,X   .Sprsheet
+         LDD #$0104       .Health
+         STD ENMETS+8,X   .Speed
+         LDD #$5001       .WaitShot
+         STD ENMETS+10,X  .ShotCode
+         LDB #12
+         ABX
+         CMPX #120
+         BNE LEENT0102
+		 
+		 * Adjust frame
+		 * before spawn
+   		 LEAX -60,X       .backfirst
+		 LDA #$00
+EEENT0102
+         ADDA #15
+		 STA ENMETS+6,X   .Adjust   		
+         LDB #12          .frame
+         ABX              .wait2
+         CMPX #120        .spawn
+         BNE EEENT0102		 
+		
+LDENMWVS
+		* Load enemies waves 
+		*
+		* Enemies number ....... 1byte    
+		* Wave survivors ....... 1byte
+		* Bonus code to  ....... 1byte
+		* Next Frame 2Wait ..... 1byte		
+		* 4bytes
+		* +2atendof stream
+		*
+		* Enemies number equals
+        * wave survivors at first
+        * and is used to countdown
+        * the next entries reading
+        * Same wave survivor address 		
+		* must be passed to each
+		* enemy of the wave 
+		* so it can downgrade until
+		* reaches zero to release
+		* the bonus
+		* Next frame 2Wait is how
+		* much wait to read the 
+		* next wave line
+		*
+		
+		 LDX #$00	
+		
+		 * Wave 1
+		 LDD #$0505       .Count
+         STD ENMWVS,X     .Survivors
+         LDD #$00FF       .Bonus
+         STD ENMWVS+2,X   .Next Wave
+		 
+		 LDB #04
+		 ABX
+		 
+		 * Wave 2		 
+		 LDD #$0505       .Count
+         STD ENMWVS,X     .Survivors
+         LDD #$00FF       .Bonus
+         STD ENMWVS+2,X   .Next Wave
+		 
+		 
+		 * End of waves
+		 LDD #$EEEE 
+		 STD ENMWVS+4,X   .EE
+		 * Init timer
+		 LDA #$60
+		 STA EFRMWT
+         *RTS
+
+LDENMSCR
+		* Load enemies on screen
+	    *
+       	* Enemy Type Code ....... 1byte    
+		* OFFX Start Pos ........ 1byte	
+        * OFFY start pos ........ 2bytes		
+        * Pattern Code .......... 1byte	
+		* Update routine ........ 1byte
+		* Frames before enter ... 1byte		
+		* Enemy Sprite sheet 
+		* in ENMSPRITES table ... 1byte    
+	    * Health ................ 1byte
+		* Speed ................. 1byte
+	    * FrmBeforeShot ......... 1byte	
+        * Shot code ............. 1byte
+		* Active Status ......... 1byte		
+		* Anim Frame ............ 1byte
+		* Waited bf shot ........ 1byte		
+        * No Use ................ 1byte
+		* Current Pattrn Step ... 2bytes
+	    * SpeedStep ............. 1bytes
+		* FrameShotStep ......... 1Bytes
+		* Position .............. 2bytes
+		* Old Position .......... 2Bytes
+		
+		* curSpeed
+		* curFrameBfShot
+		
+        * 	
+        * 24bytes
+        * MAX 10 enemies
+        * 	
+        * Active Status:
+        * 03 = active but wait for spawn
+        * 02 = active on screen
+        * 01 = dying
+        * 00 = deactivated
+  		
+         LDX #$00
+LDENMSCR1		
+         * 1 
+		 LDD #$0000          .init Type,OffX 
+		 STD ENMSCR,X        .set Type,OffX 
+		 LDD #$8000          .init OffY 
+		 STD ENMSCR+2,X      .set OffY
+		 LDD #$0000          .init Pattern,updateRoutine 
+		 STD ENMSCR+4,X      .set Pattern,updateRoutine
+		 LDD #$0000          .init waitSpawn,sprSheet
+		 STD ENMSCR+6,X      .set waitSpawn,sprSheet 
+		 LDD #$0000          .init Health,Speed
+		 STD ENMSCR+8,X      .set Health,speed
+		 LDD #$0000          .init waitShot,shotCode
+		 STD ENMSCR+10,X     .set waitShot,shotCode
+		 LDD #$0000          .init Status,animFrame
+		 STD ENMSCR+12,X     .set Status,animFrame
+		 LDD #$0000          .init waitedShot, noUse
+		 STD ENMSCR+14,X     .set waitedhot, noUse
+		 LDD #$0000          .init patternSTep
+		 STD ENMSCR+16,X     .set patternSTep
+		 LDD #$0000          .init SpeedStep,ShotStep
+		 STD ENMSCR+18,X     .set SpeedStep,ShotStep		 
+		 LDD #$0000          .init Pos
+		 STD ENMSCR+20,X     .set Pos
+		 LDD #$0000          .init OldPos
+		 STD ENMSCR+22,X     .set OldPos
+		 LDB #24             .24 bytes              
+		 ABX
+		 CMPX #240
+		 BNE LDENMSCR1	
+        
+		 LDD #$0000
+		 STD CURENE
+		 STD CUREWV
+		
+         RTS
+		
+         *	Updating: fetch enemies from waves	
+		 
+READENWAVE
+         
+         * Read next enemy wave
+		 LDA EFRMWT          .get timer to read
+		 CMPA #$00           .is time to read?		   
+		 BEQ READENWV1       .read wave!
+		 DEC EFRMWT          .dec timer
+		 LBRA UPDATENMS      .go to update enms
+READENWV1
+         * read wave
+		 * if $EE, waves are over		 
+         LDY CUREWV          .get current wave
+		 LDD ENMWVS,Y        .is over?		 
+		 CMPD #$EEEE
+         *LBEQ UPDATENMS	
+ 		 
+		 ** TEMP
+		 BEQ LOOPENWAVE
+		 BRA INCENWAVE
+LOOPENWAVE
+         LDD #$0000
+		 STD CURENE
+		 STD CUREWV	
+         LBEQ UPDATENMS	
+INCENWAVE
+         *** END TEMP		 
+		 
+		 LDD CUREWV          .inc for next wave
+         ADDB #04
+         STD CUREWV
+         LDD ENMWVS,Y
+		 STA YCMP4           .save enms count		 
+         LDA ENMWVS+3,Y      .read next to wait		 
+         STA EFRMWT		     .set next to wait 
+		 
+		 * Assign values of entries to
+		 * available enemies on screen
+		 * Y = current wave 
+		 * X = current entry
+		 * U = current enm on screen
+RDENENT			        
+         LDX CURENE          .get entry index
+		 LDD CURENE          .inc for next entry
+         ADDB #12
+         STD CURENE				
+		 LDU #$00            .get first enemy on scr
+CHKFREENM		 
+         LDA ENMSCR+12,U     .is not active?		 
+         CMPA #00            .good, let's take it
+         BEQ ASSGNENM
+		 LEAU 24,U           .search for next
+		 CMPU #240           .over?
+		 LBEQ UPDATENMS      .then go update		
+		 BRA CHKFREENM
+ASSGNENM		 
+         * Read and assign values from entry to enemy		 
+		 LDD ENMETS,X        .get current entry type
+         *                   .get offx		 					 
+		 STD ENMSCR,U		 .set type,offx
+		 LDD ENMETS+2,X      .get offy
+         STD ENMSCR+2,U		 .set offy
+		 ADDB ENMSCR+1,U     .add offx
+         STD ENMSCR+20,U     .set pos
+	     STD ENMSCR+22,U     .set oldpos 
+		 LDD ENMETS+4,X      .get Pattern,UpdateRoutine
+         STD ENMSCR+4,U		 .set Pattern,UpdateRoutine
+	     LDD ENMETS+6,X      .get waitspawn,spriteSheet
+         STD ENMSCR+6,U		 .set waitspawn,spriteSheet
+		 LDD ENMETS+8,X      .get health,speed
+         STD ENMSCR+8,U		 .set health,speed
+		 LDD ENMETS+10,X     .get waitshot,shotcode
+         STD ENMSCR+10,U	 .set waitshot,shotcode
+		 LDD #$0300          .get status,animFrame
+		 STD ENMSCR+12,U	 .set status,animFrame
+		 LDD #$0000          .get waitedShot,NoUse
+		 STD ENMSCR+14,U	 .set waitedShot,NoUse
+		 LDD #$0000          .get patternStep
+		 STD ENMSCR+16,U	 .set patternStep
+		 LDD #$0000          .get SpeedStep,ShotStep
+		 STD ENMSCR+18,U	 .set SpeedStep,ShotStep
+		
+		 LDA YCMP4 		     .get enemies number
+         SUBA #$01
+		 STA YCMP4
+		 CMPA #$00           .end of this wave?
+		 BEQ UPDATENMS       .go update enms			
+		 LBRA RDENENT        .next entry         		 		 
+UPDATENMS         
+         LDX #$00            .first enm on scr
+UPDATENM1	         	
+         LDA ENMSCR+12,X     .get status
+         CMPA #03            .isWaitingForSpawn?
+         BEQ ENMWAIT 		 
+         CMPA #02            .isMoving? 
+         BEQ ENMMOVE		 
+         CMPA #01            .isDying?
+		 BEQ ENMDIE
+ENMDIE
+         LDB #$00
+         STB ENMSCR+12,X     .set status death	
+         LBRA NEXTUPDEN		 
+ENMWAIT	
+         LDA ENMSCR+6,X      .get waitTime         
+ 		 DECA                .decrement
+		 STA ENMSCR+6,X      .set waitTime
+         CMPA #$00           .is time to enter?
+         LBGT NEXTUPDEN 	 .no: move to next
+         LDA #$02
+         STA ENMSCR+12,X     .set status
+         LBRA NEXTUPDEN		 
+ENMMOVE
+         * check bullet collision
+		 LDY #$00
+ENCHKBCL
+         LDA SHOTS,Y
+         CMPA #$02
+         LBLO ENCHKBCLNXT    .active
+         LDD SHOTS+6,Y       .get pos		 
+		 ADDD #0008          .add width		 
+		 STD YCMP1           .store width		 
+         ADDD #0280          .add height
+     	 STD YCMP2           .store height     		
+         LDD ENMSCR+20,X     .get pos		 		 
+		 * case 1: YB > YA + HA		 
+         CMPD YCMP2          .cmp height 
+		 LBGT ENCHKBCLNXT    .nocollision
+         * case 2: YB + HB < YB		 
+		 ADDD #0648          .add height
+     	 CMPD SHOTS+6,Y		 
+         LBLO ENCHKBCLNXT    .nocollision		 
+         * case 3: XB > XA + WA
+		 LDA ENMSCR+1,X
+         SUBA SHOTS+10,Y	 .get shot offX		 
+		 CMPA #00
+		 LBGT ENCHKBCLNXT
+		 CMPA #$FF
+		 LBLE ENCHKBCLNXT
+		 
+		 * COLLISION		
+		 LDA #$01
+		 STA SHOTS,Y         .deact shot
+		 LDU #BLKSHT
+         LDY SHOTS+6,Y       .del old pos		 
+         JSR DRAWSHOT        .erase
+         LDD ENMSCR+20,X     .get pos
+		 STD YCMP3		     .set anim pos 
+		 JSR ADDCINEM        .add explosion
+         LBRA SETENMDIE		 
+		 
+ENCHKBCLNXT
+         LEAY 11,Y
+		 CMPY #66
+		 BNE ENCHKBCL
+		 
+		 * Movement
+ENMMOV1
+         * check for speed
+		 LDA ENMSCR+18,X     .get speed step
+		 CMPA ENMSCR+9,X     .is time to move?
+		 BEQ ENMMOV2
+		 INCA
+		 STA ENMSCR+18,X     .increment step
+		 BRA NEXTUPDEN       .go next
+ENMMOV2		 
+         * reset speedstep
+		 LDA #$00
+		 STA ENMSCR+18,X 
+		 
+         * set movement from pattern
+         LDY #PATTERNS
+		 LDB ENMSCR+4,X      .get patternCode
+		 LSLB
+		 LEAY [B,Y]          .load enemy pattern
+		 LDD ENMSCR+16,X     .get patternStep
+		 LEAY D,Y
+		 ADDD #0005          .next pattern data
+		 STD ENMSCR+16,X     .set patternStep         		 
+		 LDB ENMSCR+1,X      .get offX
+		 CMPB #$01           .left edge?
+		 BLE SETENMDIE       .set dying
+		 ADDB ,Y+            .add movX 
+		 STB ENMSCR+1,X      .set offX
+		 LDD ,Y++            .add movY 
+		 ADDD ENMSCR+2,X     .get offY		 
+		 STD ENMSCR+2,X      .set offY
+		 ADDB ENMSCR+1,X     .add offX
+		 ADCA #$00
+         STD ENMSCR+20,X     .set pos 		 
+		 * set sprite from pattern
+         LDD ,Y++            .get animation frame
+		 STA ENMSCR+13,X     .set animation frame	
+		 CMPB #$EE           .ended?
+		 BEQ SETENMDIE       .set dying
+         BRA NEXTUPDEN	
+SETENMDIE
+         LDB #$01
+         STB ENMSCR+12,X     .set status death		 
+NEXTUPDEN		 
+         LDB #24
+         ABX
+         CMPX #240
+         LBNE UPDATENM1 
+RETUPDEN		 
+         RTS 
+
+DRAWENEMY
+         * Draw  
+         INC DELTAT		 
+         
+	     * Ram A     
+         LDD ,U++
+		 STD ,X
+		 STD 40,X
+	     LDD ,U++
+		 STD 80,X
+		 STD 120,X
+	     LDD ,U++
+		 STD 160,X
+		 STD 200,X
+	     LDD ,U++
+		 STD 240,X
+		 STD 280,X
+	     LDD ,U++
+		 STD 320,X
+		 STD 360,X
+         LDD ,U++
+		 STD 320,X
+		 STD 360,X
+         LDD ,U++
+		 STD 400,X
+		 STD 440,X
+         LDD ,U++
+		 STD 480,X
+		 STD 520,X
+          		 
+		 LEAX -$2000,X 	
+		 
+         * Ram B     
+         LDD ,U++
+		 STD ,X
+		 STD 40,X
+	     LDD ,U++
+		 STD 80,X
+		 STD 120,X
+	     LDD ,U++
+		 STD 160,X
+		 STD 200,X
+	     LDD ,U++
+		 STD 240,X
+		 STD 280,X
+	     LDD ,U++
+		 STD 320,X
+		 STD 360,X
+         LDD ,U++
+		 STD 320,X
+		 STD 360,X
+         LDD ,U++
+		 STD 400,X
+		 STD 440,X
+         LDD ,U++
+		 STD 480,X
+		 STD 520,X
+         RTS
+		 
+DRAWENMS
+         LDY #$00
+DRAWENM1   
+         LDA ENMSCR+12,Y     .get status				
+         CMPA #02            .isActive?
+         BNE DRWNXTENM       .next enm	
+/		 
+         LDB ENMSCR+7,Y      .get spritesheet
+		 LSLB
+         LDU #EN00SPRH1		 		
+		 
+         LEAX [B,U]          .get sheet from table	 		 		 
+		 LDB ENMSCR+13,Y	 .get sprite number			 
+		 LSLB
+		 LEAU [13,X]         .get sheet from table	 		 		 		 
+/		 
+         LDU #EN00SPRH1
+         LDX ENMSCR+20,Y     .get pos          
+         JSR DRAWENEMY
+DRWNXTENM
+		 LEAY 24,Y
+		 CMPY #240
+		 BEQ RETDRWENM
+		 BRA DRAWENM1        .next enm
+RETDRWENM		 
+         RTS
+		 
+ERASENMS
+         LDY #$00
+ERASENM1   
+         LDA ENMSCR+12,Y     .get status				
+         CMPA #00            .isActive?
+         BEQ ERSNXTENM       .next enm		 
+         LDU #EN00BLK
+         LDX ENMSCR+22,Y     .get old pos          
+         JSR DRAWENEMY
+ERSNXTENM
+         LDD ENMSCR+20,Y     .get pos
+		 STD ENMSCR+22,Y	 .upd old		          
+		 LEAY 24,Y
+		 CMPY #240
+		 BEQ RETERSENM
+		 BRA ERASENM1        .next enm
+RETERSENM		 
+         RTS		 
+ENEMIESOK
+
+(include)CINEMA.ASM
+
+  *********************
+  *                   *
+  *   MO6 ASM 6809s   *
+  *     MO-TYPE       *
+  *                   *
+  *    Cinemation     * 
+  *                   *
+  *********************
+  
+         LBRA CINEMOK
+  
+LOADCINM
+         * Status ........ 1byte 
+         * #Frames ....... 1byte
+         * Position ...... 2bytes		 
+         * AnimCode ...... 1byte 
+         * Frametime ..... 1byte 
+         * currentFrame .. 1byte 
+         * currentTime ... 1byte 
+		 *
+		 * 8bytes
+		 *
+		 * 20 animations = 160bytes
+		 LDX #$00
+LOADCIN1
+         LDD #0000          .Status
+         STD CINEM,X        .#Frames 		 
+         LDD #0000          .Position
+         STD CINEM+2,X      		 
+         LDD #0000          .AnimCode
+         STD CINEM+4,X      .FrameTime		 
+         LDD #0000          .currentFrame
+         STD CINEM+6,X      .currentTime 		 
+		 LDB #08
+		 ABX
+		 CMPX #160
+		 BNE LOADCIN1		 
+         RTS
+ADDCINEM        
+         * Gets position from YCMP3
+         LDY #$00
+ADDCINEM1
+         LDA CINEM,Y
+         CMPA #00           .Status 
+         BNE NXTADDCINM	
+ 		 LDA #02            .Status
+		 LDB #07            .#Frames		 
+		 STA CINEM,Y
+         STB CINEM+1,Y		 
+		 LDD YCMP3          .Position
+		 STD CINEM+2,Y      
+		 LDD #0002          .AnimCode
+		 STD CINEM+4,Y		.FrameTime 
+		 LDD #0000          .currentFrame
+		 STD CINEM+6,Y      .currentTime 	
+		 RTS
+NXTADDCINM
+         LEAY 8,Y
+		 CMPY #160
+		 BNE ADDCINEM1		        		 
+         RTS	
+		 
+UPDATECINM
+         LDX #$00
+UPDCINM1
+         LDA CINEM,X
+         CMPA #00
+         BEQ NXTUPDCINM		 
+		 LDB CINEM+7,X       .currentTime 		 
+		 CMPB CINEM+5,X      .animeTime  		  
+		 BEQ CINESTEP
+		 INCB
+		 STB CINEM+7,X 
+		 BRA NXTUPDCINM
+CINESTEP
+         * reset time
+		 LDB #$00            .currentTime 
+		 STB CINEM+7,X       .reset		 
+         * advance frame		 
+         INC CINEM+6,X       .currentFrame 
+		 LDB CINEM+6,X
+		 CMPB CINEM+1,X      .#Frames
+         BEQ CINOFFANM
+		 BRA NXTUPDCINM
+CINOFFANM		 
+         LDB #00             .deactivate
+		 STB CINEM,X         .animation 		 	 
+NXTUPDCINM
+		 LDB #08
+		 ABX
+		 CMPX #160
+		 BNE UPDCINM1	
+         RTS
+		 
+DRAWCINM      
+         LDY #$00
+DRWCINM1
+         LDA CINEM,Y
+         CMPA #00
+         BEQ NXTDRWCINM	
+		 
+         * Draw animation        
+         LDU #EXPLOSION1
+		 LDB CINEM+6,Y       .currentFrame 
+		 LSLB
+		 LEAU [B,U]          .get sprite
+		 LDX CINEM+2,Y       .get pos 
+         JSR DRAWENEMY 			 
+NXTDRWCINM
+		 LEAY 8,Y
+		 CMPY #160
+		 BNE DRWCINM1	
+         RTS
+		 
+ERASECINM
+         LDY #$00
+ERASECINM1
+         LDD CINEM,Y
+         CMPA #01
+         BNE NXTERSCINM
+		 
+NXTERSCINM
+		 LDB #08
+		 ABX
+		 CMPX #160
+		 BNE ERASECINM1		 
+         RTS
+CINEMOK
+ 
+(include)MOSPRS1.ASM
+
+  *********************
+  *                   *
+  *   MO6 ASM 6809s   *
+  *     MO-TYPE       *
+  *                   *
+  *     Sprites       * 
+  *                   *
+  *********************
+  
+PLRSHIPH1
+         INCBIN PLSHIPH1
+PLRSHIPH2
+         INCBIN PLSHIPH2
+PLRSHIPH3
+         INCBIN PLSHIPH3	 
+PLRSHIPH4
+         INCBIN PLSHIPH4
+BLACKSHIP
+         INCBIN BLKSHIP		 
+PLRSHT1		 
+		 FCB $00,$F0 .1A			 
+		 FCB $0F,$FF .2A			 
+		 FCB $F3,$3F .3A			 
+		 FCB $0F,$FF .4A			 
+		 FCB $00,$F0 .5A			 
+	     FCB $0F,$00 .1B			 
+		 FCB $F3,$00 .2B			 
+		 FCB $33,$00 .3B			 
+		 FCB $F3,$00 .4B			 
+		 FCB $0F,$00 .5B
+PLRSHT2		 
+		 FCB $00,$00 .1A			 
+		 FCB $00,$FF .2A			 
+		 FCB $00,$3F .3A			 
+		 FCB $00,$FF .4A			 
+		 FCB $00,$00 .5A			 
+	     FCB $00,$00 .1B			 
+		 FCB $0F,$F0 .2B			 
+		 FCB $F3,$3F .3B			 
+		 FCB $0F,$F0 .4B			 
+		 FCB $00,$00 .5B		 
+BLKSHT		 
+		 FCB $00,$00 .1A			 
+		 FCB $00,$00 .2A			 
+		 FCB $00,$00 .3A			 
+		 FCB $00,$00 .4A			 
+		 FCB $00,$00 .5A			 
+	     FCB $00,$00 .1B			 
+		 FCB $00,$00 .2B			 
+		 FCB $00,$00 .3B			 
+		 FCB $00,$00 .4B			 
+		 FCB $00,$00 .5B
+EXPL01
+         FCB $00,$00 .1A
+		 FCB $00,$11 .2A
+		 FCB $01,$FF .3A
+		 FCB $01,$33 .4A
+		 FCB $01,$33 .5A
+		 FCB $01,$3F .6A
+		 FCB $00,$11 .7A
+		 FCB $00,$00 .8A
+		 FCB $00,$00 .1B
+		 FCB $11,$00 .2B
+		 FCB $FF,$10 .3B
+		 FCB $FF,$10 .4B
+		 FCB $F3,$10 .5B
+		 FCB $F3,$10 .6B
+		 FCB $11,$00 .7B
+		 FCB $00,$00 .8B
+EXPL02
+         FCB $00,$11 .1A
+		 FCB $01,$FF .2A
+		 FCB $1F,$33 .3A
+		 FCB $1F,$33 .4A
+		 FCB $1F,$33 .5A
+		 FCB $1F,$33 .6A
+		 FCB $01,$FF .7A
+		 FCB $00,$11 .8A
+		 FCB $11,$00 .1B
+		 FCB $FF,$10 .2B
+		 FCB $33,$F1 .3B
+		 FCB $33,$F1 .4B
+		 FCB $33,$F1 .5B
+		 FCB $33,$F1 .6B
+		 FCB $FF,$10 .7B
+		 FCB $11,$00 .8B
+EXPL03
+         FCB $00,$00 .1A
+		 FCB $01,$00 .2A
+		 FCB $1F,$00 .3A
+		 FCB $1F,$10 .4A
+		 FCB $1F,$F1 .5A
+		 FCB $1F,$3F .6A
+		 FCB $01,$FF .7A
+		 FCB $00,$11 .8A
+		 FCB $11,$00 .1B
+		 FCB $F1,$00 .2B
+		 FCB $F1,$00 .3B
+		 FCB $3F,$00 .4B
+		 FCB $33,$11 .5B
+		 FCB $33,$F1 .6B
+		 FCB $FF,$10 .7B
+		 FCB $11,$00 .8B
+EXPL04
+         FCB $00,$00 .1A
+		 FCB $00,$00 .2A
+		 FCB $10,$00 .3A
+		 FCB $11,$00 .4A
+		 FCB $1F,$11 .5A
+		 FCB $1F,$FF .6A
+		 FCB $01,$33 .7A
+		 FCB $00,$11 .8A
+		 FCB $00,$00 .1B
+		 FCB $00,$00 .2B
+		 FCB $00,$01 .3B
+		 FCB $00,$11 .4B
+		 FCB $11,$F1 .5B
+		 FCB $FF,$F1 .6B
+		 FCB $33,$10 .7B
+		 FCB $11,$00 .8B
+EXPL05
+         FCB $00,$00 .1A
+		 FCB $00,$00 .2A
+		 FCB $00,$00 .3A
+		 FCB $00,$00 .4A
+		 FCB $10,$00 .5A
+		 FCB $11,$01 .6A
+		 FCB $01,$11 .7A
+		 FCB $00,$11 .8A
+		 FCB $00,$00 .1B
+		 FCB $00,$01 .2B
+		 FCB $00,$11 .3B
+		 FCB $00,$11 .4B
+		 FCB $00,$11 .5B
+		 FCB $00,$11 .6B
+		 FCB $11,$10 .7B
+		 FCB $11,$00 .8B
+EXPL06
+         FCB $00,$00 .1A
+		 FCB $00,$00 .2A
+		 FCB $00,$00 .3A
+		 FCB $00,$00 .4A
+		 FCB $00,$00 .5A
+		 FCB $00,$00 .6A
+		 FCB $01,$00 .7A
+		 FCB $00,$11 .8A
+		 FCB $00,$00 .1B
+		 FCB $00,$00 .2B
+		 FCB $00,$00 .3B
+		 FCB $00,$00 .4B
+		 FCB $00,$01 .5B
+		 FCB $00,$01 .6B
+		 FCB $00,$10 .7B
+		 FCB $11,$00 .8B
+
+		 
+(include)ENMSPRS.ASM
+
+  *********************
+  *                   *
+  *   MO6 ASM 6809s   *
+  *     MO-TYPE       *
+  *                   *
+  *     Enemies       * 
+  *     Sprites       *
+  *                   *
+  *********************
+
+  
+ENM00SPRS
+        FDB EN00SPRH1,EN00SPRH2
+  
+ENMSPRITES
+        FDB ENM00SPRS
+		  
+EN00SPRH1
+         *FCB $01,$08 .cols,rows
+         FCB $00,$00 .1A
+		 FCB $0A,$0A .2A
+		 FCB $A0,$50 .3A
+		 FCB $0A,$7D .4A
+		 FCB $0A,$D5 .5A
+		 FCB $A0,$50 .6A
+		 FCB $0A,$0A .7A
+		 FCB $00,$00 .8A
+		 FCB $AA,$A0 .1B
+		 FCB $2A,$2A .2B
+		 FCB $A0,$AA .3B
+		 FCB $25,$20 .4B
+		 FCB $27,$20 .5B
+		 FCB $A0,$AA .6B
+		 FCB $2A,$2A .7B
+		 FCB $AA,$A0 .8B
+EN00SPRH2
+         *FCB $01,$08 .cols,rows
+         FCB $00,$00 .1A
+		 FCB $0A,$0A .2A
+		 FCB $A0,$50 .3A
+		 FCB $0A,$7D .4A
+		 FCB $0A,$D5 .5A
+		 FCB $A0,$50 .6A
+		 FCB $0A,$0A .7A
+		 FCB $00,$00 .8A
+		 FCB $AA,$A0 .1B
+		 FCB $2A,$2A .2B
+		 FCB $A0,$AA .3B
+		 FCB $25,$20 .4B
+		 FCB $27,$20 .5B
+		 FCB $A0,$AA .6B
+		 FCB $2A,$2A .7B
+		 FCB $AA,$A0 .8B
+EN00BLK
+         *FCB $01,$08 .cols,rows
+         FCB $00,$00 .1A
+		 FCB $00,$00 .2A
+		 FCB $00,$00 .3A
+		 FCB $00,$00 .4A
+		 FCB $00,$00 .5A
+		 FCB $00,$00 .6A
+		 FCB $00,$00 .7A
+		 FCB $00,$00 .8A
+		 FCB $00,$00 .1B
+		 FCB $00,$00 .2B
+		 FCB $00,$00 .3B
+		 FCB $00,$00 .4B
+		 FCB $00,$00 .5B
+		 FCB $00,$00 .6B
+		 FCB $00,$00 .7B
+		 FCB $00,$00 .8B
+		 
+(include)TILES.ASM		 
+UPTILE00                
+         FCB $00,$00,$08,$00 *1A
+         FCB $00,$00,$88,$80 *2A
+         FCB $00,$88,$08,$08 *3A
+         FCB $00,$88,$80,$80 *4A
+         FCB $08,$80,$88,$08 *5A
+         FCB $88,$88,$88,$88 *6A
+         FCB $00,$00,$88,$00 *1B
+         FCB $00,$00,$88,$08 *2B
+         FCB $08,$88,$88,$88 *3B
+         FCB $80,$08,$00,$88 *4B
+         FCB $08,$80,$88,$80 *5B
+         FCB $88,$88,$88,$88 *6B
+UPTILE01
+         FCB $00,$00,$00,$00 *1A
+         FCB $80,$00,$00,$00 *3A
+         FCB $88,$08,$00,$88 *3A
+         FCB $08,$80,$80,$08 *4A
+         FCB $80,$08,$88,$88 *5A
+         FCB $88,$88,$88,$88 *6A
+         FCB $88,$00,$00,$00 *1B
+         FCB $00,$00,$00,$00 *2B
+         FCB $00,$00,$00,$00 *3B
+         FCB $88,$88,$08,$80 *4B
+         FCB $08,$88,$80,$88 *5B
+         FCB $88,$88,$88,$88 *6B
+UPTILE02
+         FCB $00,$08,$80,$00 *1A
+         FCB $00,$80,$08,$00 *2A
+         FCB $00,$08,$80,$88 *3A
+         FCB $08,$80,$00,$08 *4A
+         FCB $80,$08,$88,$88 *5A
+         FCB $88,$88,$88,$88 *6A
+         FCB $00,$88,$00,$00 *1B
+         FCB $08,$00,$88,$08 *2B
+         FCB $80,$00,$00,$80 *3B
+         FCB $08,$88,$08,$80 *4B
+         FCB $88,$80,$00,$08 *5B
+         FCB $88,$88,$88,$88 *6B
+UPTILE03
+         FCB $00,$00,$00,$00 *1A
+         FCB $00,$00,$00,$00 *2A
+         FCB $00,$00,$00,$00 *3A
+         FCB $80,$00,$00,$00 *4A
+         FCB $88,$88,$88,$88 *5A
+         FCB $88,$88,$88,$88 *6A
+         FCB $00,$00,$00,$00 *1B
+         FCB $00,$00,$00,$00 *2B
+         FCB $00,$00,$00,$00 *3B
+         FCB $00,$00,$00,$08 *4B
+         FCB $88,$88,$88,$88 *5B
+         FCB $88,$88,$88,$88 *6B
+		 
+(include)HUDSPRS.ASM		 
+HUDSPD                
+         FCB $77,$DD,$DD,$DD *1A
+         FCB $7C,$7C,$7C,$CC *2A
+         FCB $D4,$44,$64,$64 *3A
+         FCB $74,$64,$64,$64 *4A
+         FCB $DC,$7C,$CC,$CC *5A
+         FCB $D5,$55,$55,$55 *6A
+         FCB $7D,$DD,$DD,$DD *1B
+         FCB $C7,$77,$77,$C5 *2B
+         FCB $46,$64,$64,$47 *3B
+         FCB $44,$66,$64,$45 *4B
+         FCB $C7,$7C,$77,$C7 *5B
+         FCB $55,$55,$55,$77 *6B
+HUDPWR                
+         FCB $77,$DD,$DD,$DD *1A
+         FCB $7C,$77,$7C,$7C *2A
+         FCB $54,$44,$64,$64 *3A
+         FCB $74,$66,$64,$64 *4A
+         FCB $DC,$CC,$77,$7C *5A
+         FCB $D5,$55,$55,$55 *6A
+         FCB $7D,$DD,$DD,$DD *1B
+         FCB $C7,$CC,$CC,$C5 *2B
+         FCB $46,$64,$44,$47 *3B
+         FCB $46,$44,$64,$45 *4B
+         FCB $C7,$CC,$C7,$C7 *5B
+		 FCB $55,$55,$55,$77 *6B
+HUDLSR                
+         FCB $77,$DD,$DD,$DD *1A
+         FCB $7C,$CC,$7C,$CC *2A
+         FCB $D4,$44,$44,$64 *3A
+         FCB $74,$44,$64,$44 *4A
+         FCB $DC,$7C,$7C,$7C *5A
+         FCB $D5,$55,$55,$55 *6A
+         FCB $7D,$DD,$DD,$DD *1B
+         FCB $C7,$77,$77,$C5 *2B
+         FCB $46,$64,$64,$47 *3B
+         FCB $46,$44,$66,$45 *4B
+         FCB $C7,$77,$7C,$C7 *5B
+         FCB $55,$55,$55,$77 *6B 
+HUDMSL               
+         FCB $77,$DD,$DD,$DD *1A
+         FCB $7C,$C7,$77,$CC *2A
+         FCB $D4,$64,$64,$44 *3A
+         FCB $74,$44,$46,$44 *4A
+         FCB $DC,$CC,$77,$77 *5A
+         FCB $D5,$55,$55,$55 *6A
+         FCB $DD,$DD,$DD,$DD *1B
+         FCB $77,$7C,$C7,$C5 *2B
+         FCB $64,$64,$46,$47 *3B
+         FCB $64,$64,$46,$45 *4B
+         FCB $7C,$7C,$C7,$C7 *5B
+         FCB $55,$55,$55,$77 *6B
+HUDRT                     
+         FCB $77,$DD,$DD,$DD *1A
+         FCB $7C,$77,$C7,$CC *2A
+         FCB $D4,$64,$44,$44 *3A
+         FCB $74,$66,$44,$44 *4A
+         FCB $DC,$7C,$CC,$CC *5A
+         FCB $D5,$55,$55,$55 *6A
+         FCB $DD,$DD,$DD,$DD *1B
+         FCB $CC,$CC,$77,$C5 *2B
+         FCB $44,$64,$64,$47 *3B
+         FCB $44,$44,$64,$45 *4B
+         FCB $CC,$7C,$7C,$C7 *5B
+         FCB $55,$55,$55,$77 *6B		 
+HUDOPT                
+         FCB $77,$DD,$DD,$DD *1A
+         FCB $7C,$7C,$7C,$77 *2A
+         FCB $D4,$46,$46,$64 *3A
+         FCB $74,$46,$64,$64 *4A
+         FCB $DC,$7C,$CC,$7C *5A
+         FCB $D5,$55,$55,$55 *6A
+         FCB $DD,$DD,$DD,$DD *1B
+         FCB $C7,$C7,$C7,$C5 *2B
+         FCB $64,$46,$44,$47 *3B
+         FCB $64,$46,$44,$45 *4B
+         FCB $C7,$C7,$CC,$C7 *5B
+         FCB $55,$55,$55,$77 *6B
+HUDSHD                
+         FCB $77,$DD,$DD,$DD *1A
+         FCB $7C,$7C,$7C,$CC *2A
+         FCB $D4,$44,$64,$64 *3A
+         FCB $74,$64,$64,$64 *4A
+         FCB $DC,$7C,$7C,$CC *5A
+         FCB $D5,$55,$55,$55 *6A
+         FCB $DD,$DD,$DD,$DD *1B
+         FCB $C7,$7C,$77,$C5 *2B
+         FCB $46,$64,$64,$47 *3B
+         FCB $44,$66,$64,$45 *4B
+         FCB $C7,$7C,$77,$C7 *5B
+         FCB $55,$55,$55,$77 *6B	 
+HUDSPD1                
+         FCB $00,$00,$00,$00 *1A
+         FCB $00,$00,$00,$00 *2A
+         FCB $00,$00,$00,$00 *3A
+         FCB $00,$00,$00,$00 *4A
+         FCB $00,$00,$00,$00 *5A
+         FCB $00,$00,$00,$00 *6A
+         FCB $00,$00,$00,$00 *1B
+         FCB $00,$00,$00,$00 *2B
+         FCB $00,$00,$00,$00 *3B
+         FCB $00,$00,$00,$00 *4B
+         FCB $00,$00,$00,$00 *5B
+         FCB $00,$00,$00,$00 *6B
+HUDPWR1                
+         FCB $00,$00,$00,$00 *1A
+         FCB $00,$00,$00,$00 *2A
+         FCB $00,$00,$00,$00 *3A
+         FCB $00,$00,$00,$00 *4A
+         FCB $00,$00,$00,$00 *5A
+         FCB $00,$00,$00,$00 *6A
+         FCB $00,$00,$00,$00 *1B
+         FCB $00,$00,$00,$00 *2B
+         FCB $00,$00,$00,$00 *3B
+         FCB $00,$00,$00,$00 *4B
+         FCB $00,$00,$00,$00 *5B
+         FCB $00,$00,$00,$00 *6B
+HUDLSR1                
+         FCB $00,$00,$00,$00 *1A
+         FCB $00,$00,$00,$00 *2A
+         FCB $00,$00,$00,$00 *3A
+         FCB $00,$00,$00,$00 *4A
+         FCB $08,$00,$00,$00 *5A
+         FCB $00,$00,$00,$00 *6A
+         FCB $00,$00,$00,$00 *1B
+         FCB $00,$00,$00,$00 *2B
+         FCB $00,$00,$00,$00 *3B
+         FCB $00,$00,$00,$00 *4B
+         FCB $00,$00,$00,$00 *5B
+         FCB $00,$00,$00,$00 *6B 
+HUDMSL1               
+         FCB $00,$00,$00,$00 *1A
+         FCB $00,$00,$00,$00 *2A
+         FCB $00,$00,$00,$00 *3A
+         FCB $00,$00,$00,$00 *4A
+         FCB $00,$00,$00,$00 *5A
+         FCB $00,$00,$00,$00 *6A
+         FCB $00,$00,$00,$00 *1B
+         FCB $00,$00,$00,$00 *2B
+         FCB $00,$00,$00,$00 *3B
+         FCB $00,$00,$00,$00 *4B
+         FCB $00,$00,$00,$00 *5B
+         FCB $00,$00,$00,$00 *6B
+HUDRT1                
+         FCB $00,$00,$00,$00 *1A
+         FCB $00,$00,$00,$00 *2A
+         FCB $00,$00,$00,$00 *3A
+         FCB $00,$00,$00,$00 *4A
+         FCB $00,$00,$00,$00 *5A
+         FCB $00,$00,$00,$00 *6A
+         FCB $00,$00,$00,$00 *1B
+         FCB $00,$00,$00,$00 *2B
+         FCB $00,$00,$00,$00 *3B
+         FCB $00,$00,$00,$00 *4B
+         FCB $00,$00,$00,$00 *5B
+         FCB $00,$00,$00,$00 *6B
+HUDOPT1                
+         FCB $00,$00,$00,$00 *1A
+         FCB $00,$00,$00,$00 *2A
+         FCB $00,$00,$00,$00 *3A
+         FCB $00,$00,$00,$00 *4A
+         FCB $08,$00,$00,$00 *5A
+         FCB $00,$00,$00,$00 *6A
+         FCB $00,$00,$00,$00 *1B
+         FCB $00,$00,$00,$00 *2B
+         FCB $00,$00,$00,$00 *3B
+         FCB $00,$00,$00,$00 *4B
+         FCB $00,$00,$00,$00 *5B
+         FCB $00,$00,$00,$00 *6B
+HUDSHD1                
+         FCB $00,$00,$00,$00 *1A
+         FCB $00,$00,$00,$00 *2A
+         FCB $00,$00,$00,$00 *3A
+         FCB $00,$00,$00,$00 *4A
+         FCB $08,$00,$00,$00 *5A
+         FCB $00,$00,$00,$00 *6A
+         FCB $00,$00,$00,$00 *1B
+         FCB $00,$00,$00,$00 *2B
+         FCB $00,$00,$00,$00 *3B
+         FCB $00,$00,$00,$00 *4B
+         FCB $00,$00,$00,$00 *5B
+         FCB $00,$00,$00,$00 *6B

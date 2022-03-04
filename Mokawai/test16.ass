@@ -1,0 +1,85 @@
+(main)TEST16  
+       
+         ORG  $4000  .origin
+	     ORCC #$80   .suppress monitor
+	   
+		 
+	   * INIT
+	     JSR BOOT16 .boot BIT16
+		 
+	   
+	   * Clear Screen	   
+         JSR SETPG2
+         JSR CLS   .clear screen  
+		 
+		 JSR DISPLAY
+		 
+         JSR SETPG3
+         JSR CLS   .clear screen 
+	   
+         JSR DISPLAY
+		 
+		 LDA #01
+		 STA $6000
+		 
+         JSR DISPLAY
+		 
+	     STOP
+  		
+		 
+		 
+
+
+BOOT16
+         LDA #$7B   .BIT16
+		 STA $A7DC  .GRMODE
+         RTS
+		
+DISPLAY
+         LDA DRWPG 
+         CMPA #$00
+         BEQ SETPG2         
+         BRA SETPG3  
+		 		 
+SETPG2
+         JSR DISPG2
+         LDA #$01
+         STA DRWPG
+         RTS
+
+SETPG3   JSR DISPG3
+         LDA #$00 		 
+		 STA DRWPG		 
+         RTS  		 
+
+DISPG2
+         LDB #$80
+         STB $A7DD  .VIEW PG2
+         LDB #$03
+         STB $A7E5  .WRITE PG3
+         RTS 		 
+DISPG3
+         LDB #$C0
+         STB $A7DD  .VIEW PG3
+         LDB #$02
+         STB $A7E5  .WRITE PG2
+         RTS	   
+		 
+		 * Fill screen
+		 * with color 		 
+CLS      
+CLRP     
+         LDA #$00
+		 LDY #$6000
+CP       STA ,Y+
+         CMPY #$9FFF 
+         BNE CP
+         RTS		 
+         
+  * DRWPG address is 
+  * 0 for page 2 selected
+  * 1 for page 3 selected 
+
+DRWPG  RMB 1   .draw page
+		 
+		 END

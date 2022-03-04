@@ -1,0 +1,112 @@
+/*--------------------------------------------------------------*
+ * Compilé avec C6809 v0.83                                     *
+ *--------------------------------------------------------------*
+ * Fichier source      : test16.ass
+ * Fichier destination : test16.bin
+ * Contenu :
+ *     Main     0:TEST16.ASM   991
+ *--------------------------------------------------------------*/
+
+Macro Pass
+Pass1
+Pass2
+      2                            
+      3        4000                        ORG  $4000  .origin
+      4  2     4000 1A   80                   ORCC #$80   .suppress monitor>>
+      5                            
+      6                            
+      7                                     * INIT
+      8  8     4002 BD   4022                 JSR BOOT16 .boot BIT16
+      9                            
+     10                            
+     11                                     * Clear Screen
+     12  8     4005 BD   4031              JSR SETPG2
+     13  8     4008 BD   4059              JSR CLS   .clear screen
+     14                            
+     15  8     400B BD   4028                    JSR DISPLAY
+     16                            
+     17  8     400E BD   403A              JSR SETPG3
+     18  8     4011 BD   4059              JSR CLS   .clear screen
+     19                            
+     20  8     4014 BD   4028              JSR DISPLAY
+     21                            
+     22  2     4017 86   01                      LDA #01
+     23  5     4019 B7   6000                    STA $6000
+     24                            
+     25  8     401C BD   4028              JSR DISPLAY
+     26                            
+     27        401F BD   B000                 STOP
+     28                            
+     29                            
+     30                            
+     31
+     32
+     33        4022               BOOT16
+     34  2     4022 86   7B                LDA #$7B   .BIT16
+     35  5     4024 B7   A7DC                    STA $A7DC  .GRMODE
+     36  5     4027 39                     RTS
+     37                            
+     38        4028               DISPLAY
+     39  5     4028 B6   4068              LDA DRWPG
+     40  2     402B 81   00                CMPA #$00
+     41  3     402D 27   02                BEQ SETPG2
+     42  3     402F 20   09                BRA SETPG3
+     43                            
+     44        4031               SETPG2
+     45  8     4031 BD   4043              JSR DISPG2
+     46  2     4034 86   01                LDA #$01
+     47  5     4036 B7   4068              STA DRWPG
+     48  5     4039 39                     RTS
+     49
+     50  8     403A BD   404E     SETPG3   JSR DISPG3
+     51  2     403D 86   00                LDA #$00
+     52  5     403F B7   4068                    STA DRWPG
+     53  5     4042 39                     RTS
+     54
+     55        4043               DISPG2
+     56  2     4043 C6   80                LDB #$80
+     57  5     4045 F7   A7DD              STB $A7DD  .VIEW PG2
+     58  2     4048 C6   03                LDB #$03
+     59  5     404A F7   A7E5              STB $A7E5  .WRITE PG3
+     60  5     404D 39                     RTS
+     61        404E               DISPG3
+     62  2     404E C6   C0                LDB #$C0
+     63  5     4050 F7   A7DD              STB $A7DD  .VIEW PG3
+     64  2     4053 C6   02                LDB #$02
+     65  5     4055 F7   A7E5              STB $A7E5  .WRITE PG2
+     66  5     4058 39                     RTS
+     67                            
+     68                                          * Fill screen
+     69                                          * with color
+     70        4059               CLS
+     71        4059               CLRP
+     72  2     4059 86   00                LDA #$00
+     73  4     405B 108E 6000                    LDY #$6000
+     74  4+2   405F A7   A0       CP       STA ,Y+
+     75  5     4061 108C 9FFF              CMPY #$9FFF
+     76  3     4065 26   F8                BNE CP
+     77  5     4067 39                     RTS
+     78                            
+     79                             * DRWPG address is
+     80                             * 0 for page 2 selected
+     81                             * 1 for page 3 selected
+     82
+     83        4068               DRWPG  RMB 1   .draw page
+     84                            
+     85                  0000                    END
+
+000000 Total Errors
+
+000010 Total Symbols
+     1x          Label 4022 BOOT16
+     0x          Label 4059 CLRP
+     2x          Label 4059 CLS
+     1x          Label 405F CP
+     1x          Label 4043 DISPG2
+     1x          Label 404E DISPG3
+     3x          Label 4028 DISPLAY
+     3x          Label 4068 DRWPG
+     2x          Label 4031 SETPG2
+     2x          Label 403A SETPG3
+
+(85) Binary Not Linear
